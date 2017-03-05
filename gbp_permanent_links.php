@@ -1,27 +1,76 @@
 <?php
 
+// This is a PLUGIN TEMPLATE for Textpattern CMS.
+
+// Copy this file to a new name like abc_myplugin.php.  Edit the code, then
+// run this file at the command line to produce a plugin for distribution:
+// $ php abc_myplugin.php > abc_myplugin-0.1.txt
+
+// Plugin name is optional.  If unset, it will be extracted from the current
+// file name. Plugin names should start with a three letter prefix which is
+// unique and reserved for each plugin author ("abc" is just an example).
+// Uncomment and edit this line to override:
 $plugin['name'] = 'gbp_permanent_links';
-$plugin['version'] = '0.14';
+
+// Allow raw HTML help, as opposed to Textile.
+// 0 = Plugin help is in Textile format, no raw HTML allowed (default).
+// 1 = Plugin help is in raw HTML.  Not recommended.
+# $plugin['allow_html_help'] = 1;
+
+$plugin['version'] = '0.14.8';
 $plugin['author'] = 'Graeme Porteous';
 $plugin['author_uri'] = 'http://rgbp.co.uk/projects/textpattern/gbp_permanent_links/';
 $plugin['description'] = 'Custom permanent links rules';
+
+// Plugin load order:
+// The default value of 5 would fit most plugins, while for instance comment
+// spam evaluators or URL redirectors would probably want to run earlier
+// (1...4) to prepare the environment for everything else that follows.
+// Values 6...9 should be considered for plugins which would work late.
+// This order is user-overrideable.
+$plugin['order'] = '5';
+
+// Plugin 'type' defines where the plugin is loaded
+// 0 = public              : only on the public side of the website (default)
+// 1 = public+admin        : on both the public and admin side
+// 2 = library             : only when include_plugin() or require_plugin() is called
+// 3 = admin               : only on the admin side (no AJAX)
+// 4 = admin+ajax          : only on the admin side (AJAX supported)
+// 5 = public+admin+ajax   : on both the public and admin side (AJAX supported)
 $plugin['type'] = '1';
 
-@include_once('../zem_tpl.php');
+// Plugin "flags" signal the presence of optional capabilities to the core plugin loader.
+// Use an appropriately OR-ed combination of these flags.
+// The four high-order bits 0xf000 are available for this plugin's private use
+if (!defined('PLUGIN_HAS_PREFS')) define('PLUGIN_HAS_PREFS', 0x0001); // This plugin wants to receive "plugin_prefs.{$plugin['name']}" events
+if (!defined('PLUGIN_LIFECYCLE_NOTIFY')) define('PLUGIN_LIFECYCLE_NOTIFY', 0x0002); // This plugin wants to receive "plugin_lifecycle.{$plugin['name']}" events
 
-if (0) {
-?>
-<!-- HELP SECTION
-# --- BEGIN PLUGIN HELP ---
-h1. gbp_permanent_links.
+$plugin['flags'] = '0';
 
-There is no plugin documentation. For help please use the "forum thread":http://forum.textpattern.com/viewtopic.php?id=18918.
-# --- END PLUGIN HELP ---
--->
-<?php
-}
+// Plugin 'textpack' is optional. It provides i18n strings to be used in conjunction with gTxt().
+// Syntax:
+// ## arbitrary comment
+// #@event
+// #@language ISO-LANGUAGE-CODE
+// abc_string_name => Localized String
+
+/** Uncomment me, if you need a textpack
+$plugin['textpack'] = <<< EOT
+#@admin
+#@language en-gb
+abc_sample_string => Sample String
+abc_one_more => One more
+#@language de-de
+abc_sample_string => Beispieltext
+abc_one_more => Noch einer
+EOT;
+**/
+// End of textpack
+
+if (!defined('txpinterface'))
+        @include_once('zem_tpl.php');
+
 # --- BEGIN PLUGIN CODE ---
-
 // Constants
 @define('gbp_save', 'save');
 @define('gbp_post', 'post');
@@ -83,7 +132,7 @@ class PermanentLinks extends GBPPlugin
 		foreach ($rs as $id) {
 			$pl = $this->get_permlink($id);
 
-			// Don't try and load permalink rules from the new version
+			// Don't try and load permlink rules from the new version
 			if (!isset($pl['components']))
 				continue;
 
@@ -297,16 +346,32 @@ class PermanentLinks extends GBPPlugin
 						$uri_c = doSlash($uri_c);
 
 						//
-						if ($prefs['permalink_title_format']) {
+						if ($prefs['permlink_format']) {
 							$mt_search = array('/_/', '/\.html$/');
 							$mt_replace = array('-', '');
+							$mt_uri_c = $this->pref('redirect_mt_style_links')
+								? preg_replace($mt_search, $mt_replace, $uri_c)
+								: '';
 						} else {
-							$mt_search = array('/(?:^|_)(.)/e', '/\.html$/');
-							$mt_replace = array("strtoupper('\\1')", '');
-						}
-						$mt_uri_c = $this->pref('redirect_mt_style_links')
-							? preg_replace($mt_search, $mt_replace, $uri_c)
+							// Can't figure out how to know which of the mt_search arrays
+							// the callback recieves, so it's simpler to call it twice.
+							$mt_search = '/(?:^|_)(.)/';
+							$mt_uri_c = $this->pref('redirect_mt_style_links')
+								? preg_replace_callback($mt_search,
+									function($matches) {
+										if (!empty($matches[1])) {
+											return strtoupper($matches[1][0]);
+										}
+									}
+									, $uri_c)
 							: '';
+
+							$mt_search = '/\.html$/';
+							$mt_replace = '';
+							$mt_uri_c = $this->pref('redirect_mt_style_links')
+								? preg_replace($mt_search, $mt_replace, $mt_uri_c)
+								: '';
+						}
 
 						// Compare based on type
 						switch ($type) {
@@ -2008,7 +2073,16 @@ if (@txpinterface == 'public') {
 		return $gbp_pl->toggle_permlink_mode('parse', $thing);
 	}
 }
-
 # --- END PLUGIN CODE ---
+if (0) {
+?>
+<!--
+# --- BEGIN PLUGIN HELP ---
+<h1>gbp_permanent_links.</h1>
 
+<p>There is no plugin documentation. For help please use the <a href="http://forum.textpattern.com/viewtopic.php?id=18918" rel="nofollow">forum thread</a>.</p>
+# --- END PLUGIN HELP ---
+-->
+<?php
+}
 ?>
