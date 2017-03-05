@@ -353,8 +353,8 @@ class PermanentLinks extends GBPPlugin
 								? preg_replace($mt_search, $mt_replace, $uri_c)
 								: '';
 						} else {
-							// Can't figure out how to know which of the mt_search arrays
-							// the callback recieves, so it's simpler to call it twice.
+							// Can't figure out how to know which of the original mt_search arrays
+							// the callback receives, so it's simpler to call it twice.
 							$mt_search = '/(?:^|_)(.)/';
 							$mt_uri_c = $this->pref('redirect_mt_style_links')
 								? preg_replace_callback($mt_search,
